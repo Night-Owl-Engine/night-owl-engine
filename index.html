@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Night Owl Engine — คำนวณเวลาปิดไฟ ปิดกาแฟ ปิดตา</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0a0d1a">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Night Owl">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --ink: #190d49;
+      --ink-2: #5ed6ff;
+      --card: #171d3d;
+      --line: rgba(255, 255, 255, 0.09);
+      --coffee: #ffb84d;
+      --dim: #aeb6d9;
+      --sleep: #ffffff;
+      --wake: #5ed6ff;
+      --text: #ffffff;
+      --muted: #f8f8fa;
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    body {
+      background:
+        radial-gradient(1200px 700px at 15% -10%, rgba(124, 92, 255, 0.18), transparent 60%),
+        radial-gradient(900px 600px at 110% 10%, rgba(94, 214, 255, 0.12), transparent 60%),
+        var(--ink);
+      color: var(--text);
+      font-family: 'IBM Plex Sans', sans-serif;
+    }
+
+    .font-display {
+      font-family: 'Fraunces', serif;
+      font-optical-sizing: auto;
+    }
+
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .card {
+      background: linear-gradient(180deg, var(--card), var(--ink-2));
+      border: 1px solid var(--line);
+    }
+
+    .glow-coffee {
+      box-shadow: 0 0 0 1px rgba(193, 122, 77, 0.35), 0 0 24px rgba(193, 122, 77, 0.18);
+    }
+
+    .glow-dim {
+      box-shadow: 0 0 0 1px rgba(232, 163, 61, 0.35), 0 0 24px rgba(232, 163, 61, 0.18);
+    }
+
+    .glow-sleep {
+      box-shadow: 0 0 0 1px rgba(139, 127, 209, 0.35), 0 0 24px rgba(139, 127, 209, 0.18);
+    }
+
+    .glow-wake {
+      box-shadow: 0 0 0 1px rgba(79, 209, 197, 0.35), 0 0 24px rgba(79, 209, 197, 0.18);
+    }
+
+    .pulse-ring {
+      animation: pulseRing 2.4s ease-in-out infinite;
+    }
+
+    @keyframes pulseRing {
+
+      0%,
+      100% {
+        opacity: .55;
+        transform: scale(1);
+      }
+
+      50% {
+        opacity: 1;
+        transform: scale(1.06);
+      }
+    }
+
+    .hand {
+      transform-origin: 150px 150px;
+      transition: transform 1s linear;
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 4px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--sleep), var(--dim));
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 999px;
+      background: var(--text);
+      border: 3px solid var(--ink);
+      margin-top: -6px;
+      cursor: pointer;
+    }
+
+    input[type=time] {
+      color-scheme: dark;
+    }
+
+    ::selection {
+      background: rgba(231, 167, 207, 0.904);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .pulse-ring {
+        animation: none;
+      }
+
+      .hand {
+        transition: none;
+      }
+    }
+
+    .badge-upcoming {
+      color: var(--muted);
+      border-color: var(--line);
+    }
+
+    .badge-active {
+      color: var(--ink);
+      background: var(--dim);
+      border-color: var(--dim);
+    }
+
+    .badge-done {
+      color: var(--muted);
+      border-color: var(--line);
+      text-decoration: line-through;
+      opacity: .6;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen">
+
+  <div class="max-w-6xl mx-auto px-5 md:px-8 py-10 md:py-14">
+
+    <header class="mb-10 flex items-start justify-between gap-6 flex-wrap">
+      <div>
+        <p class="font-mono text-xs tracking-[0.25em] text-[var(--muted)] uppercase mb-3">ระบบคำนวณจังหวะราตรี</p>
+        <h1 class="font-display text-4xl md:text-5xl leading-tight">
+          Night Owl <span class="italic" style="color:var(--dim)">Engine</span>
+        </h1>
+        <p class="text-[var(--muted)] mt-3 max-w-md">
+          ตั้งเวลาตื่นที่ต้องการ เครื่องจะคำนวณย้อนกลับให้ว่าควร
+          <span style="color:var(--coffee)">เลิกกาแฟ</span>,
+          <span style="color:var(--dim)">หรี่ไฟ</span> และ
+          <span style="color:var(--sleep)">เข้านอน</span> เมื่อไหร่ — พร้อมเตือนแบบเรียลไทม์
+        </p>
+      </div>
+      <div class="font-mono text-right">
+        <p class="text-xs text-[var(--muted)] uppercase tracking-wider mb-1">เวลาปัจจุบัน</p>
+        <p id="clockNow" class="text-3xl md:text-4xl font-semibold" style="color:var(--text)">--:--:--</p>
+      </div>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6">
+
+      <div class="space-y-6">
+
+        <div class="card rounded-2xl p-6">
+          <h2 class="font-display text-lg mb-5">ตั้งค่าของคุณ</h2>
+
+          <div class="mb-5">
+            <span class="text-sm text-[var(--muted)] block mb-2">กำหนดจากอะไร</span>
+            <div class="grid grid-cols-2 gap-2" id="modeGroup">
+              <button data-mode="wake" class="mode-btn text-xs py-2 rounded-lg border">กำหนดเวลาตื่น</button>
+              <button data-mode="bed" class="mode-btn text-xs py-2 rounded-lg border">กำหนดเวลาเข้านอนเอง</button>
+            </div>
+          </div>
+
+          <label class="block mb-5" id="wakeField">
+            <span class="text-sm text-[var(--muted)] flex items-center gap-2 mb-2">
+              <span style="color:var(--wake)">●</span> อยากตื่นกี่โมง
+            </span>
+            <input id="wakeInput" type="time" value="07:00"
+              class="w-full bg-[var(--ink)] border border-[var(--line)] rounded-lg px-3 py-2 font-mono text-lg focus:outline-none focus:ring-2"
+              style="--tw-ring-color:var(--wake)">
+          </label>
+
+          <label class="block mb-5 hidden" id="bedField">
+            <span class="text-sm text-[var(--muted)] flex items-center gap-2 mb-2">
+              <span style="color:var(--sleep)">●</span> อยากเข้านอนกี่โมง
+            </span>
+            <input id="bedInput" type="time" value="23:00"
+              class="w-full bg-[var(--ink)] border border-[var(--line)] rounded-lg px-3 py-2 font-mono text-lg focus:outline-none focus:ring-2"
+              style="--tw-ring-color:var(--sleep)">
+          </label>
+
+          <label class="block mb-5">
+            <span class="text-sm text-[var(--muted)] flex justify-between mb-2">
+              <span><span style="color:var(--sleep)">●</span> ต้องการนอนกี่ชั่วโมง</span>
+              <span id="durVal" class="font-mono" style="color:var(--sleep)">8.0 ชม.</span>
+            </span>
+            <input id="durInput" type="range" min="5" max="10" step="0.5" value="8" class="w-full">
+            <p id="durHint" class="text-xs text-[var(--muted)] mt-2"></p>
+          </label>
+
+          <label class="block mb-5">
+            <span class="text-sm text-[var(--muted)] flex items-center gap-2 mb-2">
+              <span style="color:var(--coffee)">●</span> ความไวต่อคาเฟอีน
+            </span>
+            <div class="grid grid-cols-3 gap-2" id="sensGroup">
+              <button data-h="6" class="sens-btn text-xs py-2 rounded-lg border border-[var(--line)]">ต่ำ (6
+                ชม.)</button>
+              <button data-h="8" class="sens-btn text-xs py-2 rounded-lg border border-[var(--line)]">ปกติ (8
+                ชม.)</button>
+              <button data-h="10" class="sens-btn text-xs py-2 rounded-lg border border-[var(--line)]">ไว (10
+                ชม.)</button>
+            </div>
+            <p class="text-xs text-[var(--muted)] mt-2">ระยะเวลาก่อนนอนที่ควรงดคาเฟอีน — ครึ่งชีวิตคาเฟอีนเฉลี่ย ~5-6
+              ชม. ในเลือด</p>
+          </label>
+
+          <label class="block">
+            <span class="text-sm text-[var(--muted)] flex items-center gap-2 mb-2">
+              <span style="color:var(--dim)">●</span> หรี่ไฟ/งดจอก่อนนอนกี่นาที
+            </span>
+            <input id="dimInput" type="range" min="30" max="120" step="15" value="60" class="w-full">
+            <p class="text-xs text-[var(--muted)] mt-2 font-mono"><span id="dimVal">60</span> นาทีก่อนเข้านอน</p>
+          </label>
+        </div>
+
+        <div class="card rounded-2xl p-6">
+          <h2 class="font-display text-lg mb-4">ระบบแจ้งเตือน</h2>
+
+          <button id="installBtn"
+            class="w-full text-sm py-2.5 rounded-lg border mb-3 hidden items-center justify-center gap-2"
+            style="border-color:var(--dim); color:var(--dim)">
+            📲 ติดตั้งเป็นแอปบนมือถือ
+          </button>
+          <p id="iosHint" class="text-xs text-[var(--muted)] mb-3 leading-relaxed hidden">
+            บน iPhone: แตะปุ่มแชร์ (ไอคอนสี่เหลี่ยมมีลูกศร) ใน Safari แล้วเลือก <b>"เพิ่มไปยังหน้าจอโฮม"</b> —
+            ต้องเปิดจากไอคอนที่หน้าจอโฮมถึงจะเด้งแจ้งเตือนแบบระบบได้ (iOS 16.4 ขึ้นไป)
+          </p>
+
+          <div class="space-y-3">
+            <button id="notifBtn"
+              class="w-full text-sm py-2.5 rounded-lg border border-[var(--line)] hover:bg-white/5 transition flex items-center justify-center gap-2">
+              🔔 <span id="notifBtnLabel">ขออนุญาตแจ้งเตือนเบราว์เซอร์</span>
+            </button>
+            <div class="flex items-center justify-between text-sm py-1">
+              <span class="text-[var(--muted)]">เสียงเตือน</span>
+              <button id="soundToggle" class="font-mono text-xs px-3 py-1.5 rounded-full border"
+                style="border-color:var(--sleep); color:var(--sleep)">เปิดอยู่ 🔊</button>
+            </div>
+            <button id="testSoundBtn"
+              class="w-full text-xs py-2 rounded-lg border border-[var(--line)] text-[var(--muted)] hover:bg-white/5 transition">ทดสอบเสียง</button>
+          </div>
+          <p id="engineStatus" class="text-xs text-[var(--muted)] mt-4 leading-relaxed">
+            เครื่องยนต์กำลังทำงาน — ตรวจสอบเวลาทุกวินาที เมื่อถึงจุดที่ตั้งไว้จะส่งเสียงและแจ้งเตือนแบบระบบ
+            (ขึ้นบนหน้าจอ/ล็อกสกรีนของมือถือ) ให้อัตโนมัติ
+          </p>
+          <p id="hostHint" class="text-xs mt-2 leading-relaxed hidden" style="color:var(--coffee)">
+            ⚠ ต้องอัปโหลดไฟล์นี้ขึ้นเว็บโฮสต์ (HTTPS) ก่อน — เปิดจากไฟล์ในเครื่องตรง ๆ เบราว์เซอร์จะปิดกั้น Service
+            Worker ทำให้แจ้งเตือนแบบระบบใช้ไม่ได้ (เสียงในหน้ายังทำงานปกติ)
+          </p>
+        </div>
+      </div>
+
+      <div class="space-y-6">
+
+        <div class="card rounded-2xl p-6 md:p-8 flex flex-col md:flex-row items-center gap-8">
+          <div class="relative shrink-0">
+            <svg id="dial" viewBox="0 0 300 300" width="300" height="300">
+              <circle cx="150" cy="150" r="140" fill="none" stroke="var(--line)" stroke-width="1"></circle>
+              <circle cx="150" cy="150" r="118" fill="none" stroke="var(--line)" stroke-width="1"></circle>
+              <g id="ticks"></g>
+              <g id="zoneArcs"></g>
+              <g id="dots"></g>
+              <line id="handLine" class="hand" x1="150" y1="150" x2="150" y2="34" stroke="var(--wake)" stroke-width="3"
+                stroke-linecap="round"></line>
+              <circle cx="150" cy="150" r="5" fill="var(--wake)"></circle>
+              <circle id="handGlow" class="pulse-ring" cx="150" cy="34" r="4" fill="var(--wake)"></circle>
+            </svg>
+          </div>
+          <div class="flex-1 w-full">
+            <p class="font-display text-xl mb-1">นาฬิการาตรี</p>
+            <p class="text-sm text-[var(--muted)] mb-5">วงในสุด = 24 ชั่วโมง เริ่มเที่ยงคืนที่ด้านบน หมุนตามเข็มนาฬิกา
+              จุดสีคือกำหนดการของคุณคืนนี้</p>
+            <div class="grid grid-cols-2 gap-3" id="legendGrid"></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4" id="timelineCards"></div>
+
+      </div>
+    </div>
+
+    <footer class="mt-12 text-center text-xs text-[var(--muted)] font-mono">
+      ปล่อยแท็บนี้เปิดไว้เพื่อให้ระบบแจ้งเตือนทำงานแบบเรียลไทม์
+    </footer>
+  </div>
+
+  <script>
+    (function () {
+      const state = {
+        mode: "wake",
+        wake: "07:00",
+        bedtime: "23:00",
+        durationH: 8,
+        caffeineH: 8,
+        dimMin: 60,
+        soundOn: true,
+        notifPermission: (typeof Notification !== "undefined") ? Notification.permission : "unsupported",
+        firedToday: {}
+      };
+
+      const milestoneDefs = [
+        { key: "coffee", label: "เลิกกาแฟ", icon: "☕", color: "var(--coffee)", glow: "glow-coffee" },
+        { key: "dim", label: "หรี่ไฟ / งดจอ", icon: "🕯️", color: "var(--dim)", glow: "glow-dim" },
+        { key: "sleep", label: "เข้านอน", icon: "🌙", color: "var(--sleep)", glow: "glow-sleep" },
+        { key: "wake", label: "ตื่นนอน", icon: "🦉", color: "var(--wake)", glow: "glow-wake" },
+      ];
+
+      function parseHM(str) { const [h, m] = str.split(":").map(Number); return h * 60 + m; }
+      function fmtHM(totalMin) {
+        totalMin = ((totalMin % 1440) + 1440) % 1440;
+        const h = Math.floor(totalMin / 60), m = Math.round(totalMin % 60);
+        return String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0");
+      }
+      function minutesNow() { const d = new Date(); return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60; }
+
+      function computeMilestones() {
+        let sleepMin, wakeMin;
+        if (state.mode === "bed") {
+          sleepMin = parseHM(state.bedtime);
+          wakeMin = sleepMin + state.durationH * 60;
+        } else {
+          wakeMin = parseHM(state.wake);
+          sleepMin = wakeMin - state.durationH * 60;
+        }
+        const dimMin = sleepMin - state.dimMin;
+        const coffeeMin = sleepMin - state.caffeineH * 60;
+        return { coffee: coffeeMin, dim: dimMin, sleep: sleepMin, wake: wakeMin };
+      }
+
+      const CX = 150, CY = 150, R = 118;
+      function angleForMinutes(min) { const norm = ((min % 1440) + 1440) % 1440; return (norm / 1440) * 360 - 90; }
+      function polar(cx, cy, r, angleDeg) {
+        const rad = angleDeg * Math.PI / 180;
+        return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+      }
+
+      function drawTicks() {
+        const g = document.getElementById("ticks");
+        let html = "";
+        for (let h = 0; h < 24; h++) {
+          const a = angleForMinutes(h * 60);
+          const p1 = polar(CX, CY, h % 6 === 0 ? 128 : 133, a);
+          const p2 = polar(CX, CY, 140, a);
+          html += `<line x1="${p1.x.toFixed(1)}" y1="${p1.y.toFixed(1)}" x2="${p2.x.toFixed(1)}" y2="${p2.y.toFixed(1)}" stroke="var(--line)" stroke-width="${h % 6 === 0 ? 1.6 : 1}"/>`;
+          if (h % 6 === 0) {
+            const lp = polar(CX, CY, 150, a);
+            html += `<text x="${lp.x.toFixed(1)}" y="${(lp.y + 3).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--muted)" font-family="JetBrains Mono, monospace">${String(h).padStart(2, "0")}</text>`;
+          }
+        }
+        g.innerHTML = html;
+      }
+
+      function arcPath(startMin, endMin, r) {
+        let a1 = angleForMinutes(startMin);
+        let a2 = angleForMinutes(endMin);
+        let sweep = ((endMin - startMin) % 1440 + 1440) % 1440;
+        const large = sweep > 180 ? 1 : 0;
+        const p1 = polar(CX, CY, r, a1);
+        const p2 = polar(CX, CY, r, a2);
+        return `M ${p1.x.toFixed(1)} ${p1.y.toFixed(1)} A ${r} ${r} 0 ${large} 1 ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+      }
+
+      function drawZonesAndDots(m) {
+        const arcsG = document.getElementById("zoneArcs");
+        const dotsG = document.getElementById("dots");
+        let arcs = "";
+        arcs += `<path d="${arcPath(m.sleep, m.wake, 96)}" fill="none" stroke="var(--sleep)" stroke-width="10" stroke-linecap="round" opacity="0.35"/>`;
+        arcs += `<path d="${arcPath(m.dim, m.sleep, 96)}" fill="none" stroke="var(--dim)" stroke-width="10" stroke-linecap="round" opacity="0.55"/>`;
+        arcsG.innerHTML = arcs;
+
+        let dots = "";
+        milestoneDefs.forEach(def => {
+          const a = angleForMinutes(m[def.key]);
+          const p = polar(CX, CY, 96, a);
+          dots += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="5.5" fill="${def.color}" stroke="var(--ink)" stroke-width="2"/>`;
+        });
+        dotsG.innerHTML = dots;
+      }
+
+      function updateHand() {
+        const nowMin = minutesNow();
+        const a = angleForMinutes(nowMin);
+        const tip = polar(CX, CY, 34, a);
+        document.getElementById("handLine").setAttribute("x2", tip.x.toFixed(1));
+        document.getElementById("handLine").setAttribute("y2", tip.y.toFixed(1));
+        document.getElementById("handGlow").setAttribute("cx", tip.x.toFixed(1));
+        document.getElementById("handGlow").setAttribute("cy", tip.y.toFixed(1));
+      }
+
+      function renderLegendAndCards(m) {
+        const legend = document.getElementById("legendGrid");
+        const cards = document.getElementById("timelineCards");
+        let legendHtml = "";
+        let cardsHtml = "";
+        const nowMin = minutesNow();
+
+        milestoneDefs.forEach(def => {
+          const t = m[def.key];
+          legendHtml += `
+        <div class="flex items-center gap-2 text-sm">
+          <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${def.color}"></span>
+          <span class="text-[var(--muted)]">${def.label}</span>
+          <span class="font-mono ml-auto" style="color:${def.color}">${fmtHM(t)}</span>
+        </div>`;
+
+          let diff = t - nowMin;
+          let diffNorm = ((diff % 1440) + 1440) % 1440;
+          const isActiveNow = diffNorm <= 2 || diffNorm >= 1438;
+          const hoursLeft = Math.floor(diffNorm / 60);
+          const minsLeft = Math.round(diffNorm % 60);
+          const statusLabel = isActiveNow ? "ถึงเวลาแล้ว" : `อีก ${hoursLeft} ชม. ${minsLeft} นาที`;
+
+          cardsHtml += `
+        <div class="card rounded-2xl p-5 ${isActiveNow ? def.glow : ''}">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-2xl">${def.icon}</span>
+            <span class="font-mono text-[10px] px-2 py-1 rounded-full border ${isActiveNow ? 'badge-active' : 'badge-upcoming'}">${isActiveNow ? 'ตอนนี้' : 'กำลังจะถึง'}</span>
+          </div>
+          <p class="text-sm text-[var(--muted)] mb-1">${def.label}</p>
+          <p class="font-mono text-2xl mb-1" style="color:${def.color}">${fmtHM(t)}</p>
+          <p class="text-xs text-[var(--muted)] font-mono">${statusLabel}</p>
+        </div>`;
+        });
+
+        legend.innerHTML = legendHtml;
+        cards.innerHTML = cardsHtml;
+      }
+
+      let audioCtx = null;
+      function ensureAudio() {
+        if (!audioCtx) {
+          const Ctx = window.AudioContext || window.webkitAudioContext;
+          if (Ctx) audioCtx = new Ctx();
+        }
+        if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+        return audioCtx;
+      }
+      function playChime() {
+        if (!state.soundOn) return;
+        const ctx = ensureAudio();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+        [{ f: 880, t: 0, d: 0.28 }, { f: 587, t: 0.22, d: 0.4 }].forEach(tone => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(tone.f, now + tone.t);
+          gain.gain.setValueAtTime(0, now + tone.t);
+          gain.gain.linearRampToValueAtTime(0.18, now + tone.t + 0.03);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + tone.t + tone.d);
+          osc.connect(gain).connect(ctx.destination);
+          osc.start(now + tone.t);
+          osc.stop(now + tone.t + tone.d + 0.05);
+        });
+      }
+
+      function requestNotifPermission() {
+        if (typeof Notification === "undefined") {
+          state.notifPermission = "unsupported";
+          updateNotifBtn();
+          return;
+        }
+        Notification.requestPermission().then(p => {
+          state.notifPermission = p;
+          updateNotifBtn();
+        });
+      }
+      function fireNotification(def, timeStr) {
+        if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+        const title = `Night Owl Engine — ${def.label}`;
+        const body = `ถึงเวลา${def.label} แล้ว (${timeStr})`;
+        if (swRegistration && swRegistration.active) {
+          swRegistration.active.postMessage({ type: "NIGHT_OWL_NOTIFY", title, body, tag: "night-owl-" + def.key });
+          return;
+        }
+        try { new Notification(title, { body }); } catch (e) { }
+      }
+      function updateNotifBtn() {
+        const btn = document.getElementById("notifBtn");
+        const label = document.getElementById("notifBtnLabel");
+        if (state.notifPermission === "granted") {
+          label.textContent = "แจ้งเตือนเบราว์เซอร์: เปิดใช้งานแล้ว ✓";
+          btn.classList.add("glow-sleep");
+        } else if (state.notifPermission === "denied") {
+          label.textContent = "แจ้งเตือนถูกบล็อกไว้ในเบราว์เซอร์";
+        } else if (state.notifPermission === "unsupported") {
+          label.textContent = "เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือน";
+        } else {
+          label.textContent = "ขออนุญาตแจ้งเตือนเบราว์เซอร์";
+        }
+      }
+
+      function checkMilestones(m) {
+        const nowMin = minutesNow();
+        milestoneDefs.forEach(def => {
+          const t = m[def.key];
+          let diffNorm = ((t - nowMin) % 1440 + 1440) % 1440;
+          const dayKey = new Date().toDateString();
+          const fireKey = def.key + "|" + dayKey;
+          if (diffNorm <= 0.5 || diffNorm >= 1439.5) {
+            if (!state.firedToday[fireKey]) {
+              state.firedToday[fireKey] = true;
+              playChime();
+              fireNotification(def, fmtHM(t));
+            }
+          }
+        });
+      }
+
+      function tick() {
+        const now = new Date();
+        document.getElementById("clockNow").textContent =
+          String(now.getHours()).padStart(2, "0") + ":" +
+          String(now.getMinutes()).padStart(2, "0") + ":" +
+          String(now.getSeconds()).padStart(2, "0");
+        updateHand();
+        const m = computeMilestones();
+        renderLegendAndCards(m);
+        checkMilestones(m);
+      }
+
+      function fullRedraw() {
+        const m = computeMilestones();
+        drawZonesAndDots(m);
+        renderLegendAndCards(m);
+        updateHand();
+        const hint = document.getElementById("durHint");
+        if (state.mode === "bed") {
+          hint.textContent = `→ จะได้ตื่นตอน ${fmtHM(m.wake)}`;
+        } else {
+          hint.textContent = `→ ต้องเข้านอนตอน ${fmtHM(m.sleep)}`;
+        }
+      }
+
+      function setMode(mode) {
+        state.mode = mode;
+        document.querySelectorAll(".mode-btn").forEach(b => {
+          const active = b.dataset.mode === mode;
+          b.style.borderColor = active ? "var(--sleep)" : "var(--line)";
+          b.style.color = active ? "var(--sleep)" : "var(--text)";
+          b.style.background = active ? "rgba(139,127,209,0.12)" : "transparent";
+        });
+        document.getElementById("wakeField").classList.toggle("hidden", mode !== "wake");
+        document.getElementById("bedField").classList.toggle("hidden", mode !== "bed");
+        fullRedraw();
+      }
+      document.querySelectorAll(".mode-btn").forEach(btn => {
+        btn.addEventListener("click", () => setMode(btn.dataset.mode));
+      });
+
+      document.getElementById("wakeInput").addEventListener("change", e => { state.wake = e.target.value || "07:00"; fullRedraw(); });
+      document.getElementById("bedInput").addEventListener("change", e => { state.bedtime = e.target.value || "23:00"; fullRedraw(); });
+      document.getElementById("durInput").addEventListener("input", e => {
+        state.durationH = parseFloat(e.target.value);
+        document.getElementById("durVal").textContent = state.durationH.toFixed(1) + " ชม.";
+        fullRedraw();
+      });
+      document.getElementById("dimInput").addEventListener("input", e => {
+        state.dimMin = parseInt(e.target.value, 10);
+        document.getElementById("dimVal").textContent = state.dimMin;
+        fullRedraw();
+      });
+      document.querySelectorAll(".sens-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          state.caffeineH = parseInt(btn.dataset.h, 10);
+          document.querySelectorAll(".sens-btn").forEach(b => {
+            b.style.borderColor = "var(--line)"; b.style.color = "var(--text)"; b.style.background = "transparent";
+          });
+          btn.style.borderColor = "var(--coffee)"; btn.style.color = "var(--coffee)"; btn.style.background = "rgba(193,122,77,0.1)";
+          fullRedraw();
+        });
+      });
+      document.querySelector('.sens-btn[data-h="8"]').click();
+
+      document.getElementById("notifBtn").addEventListener("click", requestNotifPermission);
+      document.getElementById("testSoundBtn").addEventListener("click", playChime);
+      document.getElementById("soundToggle").addEventListener("click", () => {
+        state.soundOn = !state.soundOn;
+        const btn = document.getElementById("soundToggle");
+        btn.textContent = state.soundOn ? "เปิดอยู่ 🔊" : "ปิดอยู่ 🔇";
+        btn.style.borderColor = state.soundOn ? "var(--sleep)" : "var(--line)";
+        btn.style.color = state.soundOn ? "var(--sleep)" : "var(--muted)";
+      });
+
+      let swRegistration = null;
+      let deferredInstallPrompt = null;
+
+      window.addEventListener("beforeinstallprompt", (e) => {
+        e.preventDefault();
+        deferredInstallPrompt = e;
+        const btn = document.getElementById("installBtn");
+        btn.classList.remove("hidden"); btn.classList.add("flex");
+      });
+      document.getElementById("installBtn").addEventListener("click", async () => {
+        if (!deferredInstallPrompt) return;
+        deferredInstallPrompt.prompt();
+        await deferredInstallPrompt.userChoice;
+        deferredInstallPrompt = null;
+        document.getElementById("installBtn").classList.add("hidden");
+      });
+
+      function isIOS() { return /iphone|ipad|ipod/i.test(navigator.userAgent); }
+      function isStandalone() { return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true; }
+      if (isIOS() && !isStandalone()) { document.getElementById("iosHint").classList.remove("hidden"); }
+
+      if ("serviceWorker" in navigator) {
+        if (location.protocol === "https:" || location.hostname === "localhost") {
+          navigator.serviceWorker.register("service-worker.js")
+            .then(reg => {
+              swRegistration = reg.active || reg.waiting || reg.installing;
+              navigator.serviceWorker.ready.then(r => swRegistration = r.active);
+            })
+            .catch(() => { document.getElementById("hostHint").classList.remove("hidden"); });
+        } else {
+          document.getElementById("hostHint").classList.remove("hidden");
+        }
+      } else {
+        document.getElementById("hostHint").classList.remove("hidden");
+      }
+
+      drawTicks();
+      updateNotifBtn();
+      setMode("wake");
+      fullRedraw();
+      tick();
+      setInterval(tick, 1000);
+    })();
+  </script>
+</body>
+
+</html>
